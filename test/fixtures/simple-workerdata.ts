@@ -1,6 +1,6 @@
 import Piscina from '../..';
 import assert from 'assert';
 
-assert.strictEqual(Piscina.workerData, 'ABC');
+assert.ok(Piscina.workerData === 'ABC' || JSON.stringify(Piscina.workerData) === '{"ABC":true}');
 
 export default function () { return 'done'; }

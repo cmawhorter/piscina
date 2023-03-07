@@ -1,4 +1,4 @@
-import type { MessagePort } from 'worker_threads';
+import type { MessagePort, Worker } from 'worker_threads';
 
 export const READY = '_WORKER_READY';
 
@@ -16,6 +16,7 @@ export interface RequestMessage {
   task : any;
   filename: string;
   name : string;
+  threadData?: WorkerData;
 }
 
 export interface ReadyMessage {
@@ -27,7 +28,13 @@ export interface ResponseMessage {
   result : any;
   error: Error | null;
 }
-export const commonState = {
+
+interface ICommonState {
+  isWorkerThread: boolean;
+  workerData?: WorkerData;
+}
+
+export const commonState: ICommonState = {
   isWorkerThread: false,
   workerData: undefined
 };
@@ -71,9 +78,19 @@ export interface Task {
   readonly [kQueueOptions] : object | null;
 }
 
+type Primitive = string | number | boolean;
+
+export type WorkerData = null | Primitive | Primitive[] | Record<string | number, Primitive | Primitive[] | Record<string | number, object>>;
+
+export interface IWorker {
+  worker: Worker;
+  readonly threadData?: WorkerData;
+}
+
 export interface TaskQueue {
   readonly size : number;
-  shift () : Task | null;
+  shift (worker: null | IWorker) : Task | null;
+  unshift (task: Task) : void;
   remove (task : Task) : void;
   push (task : Task) : void;
 }

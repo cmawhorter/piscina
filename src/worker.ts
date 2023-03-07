@@ -11,11 +11,12 @@ import {
   kRequestCountField,
   isMovable,
   kTransferable,
-  kValue
+  kValue,
+  WorkerData
 } from './common';
 
 commonState.isWorkerThread = true;
-commonState.workerData = workerData;
+commonState.workerData = workerData as WorkerData;
 
 const handlerCache : Map<string, Function> = new Map();
 let useAtomics : boolean = process.env.PISCINA_DISABLE_ATOMICS !== '1';
@@ -135,7 +136,7 @@ function onMessage (
   sharedBuffer : Int32Array,
   message : RequestMessage) {
   currentTasks++;
-  const { taskId, task, filename, name } = message;
+  const { taskId, task, filename, name, threadData } = message;
 
   (async function () {
     let response : ResponseMessage;
@@ -145,7 +146,7 @@ function onMessage (
       if (handler === null) {
         throw new Error(`No handler function exported from ${filename}`);
       }
-      let result = await handler(task);
+      let result = await handler(task, threadData);
       if (isMovable(result)) {
         transferList = transferList.concat(result[kTransferable]);
         result = result[kValue];
@@ -166,7 +167,7 @@ function onMessage (
       if (process.stderr.writableLength > 0) {
         await new Promise((resolve) => process.stderr.write('', resolve));
       }
-    } catch (error) {
+    } catch (error: any) {
       response = {
         taskId,
         result: null,

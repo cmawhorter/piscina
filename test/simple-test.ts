@@ -120,6 +120,16 @@ test('passing valid workerData works', async ({ equal }) => {
   await pool.runTask(null);
 });
 
+test('passing valid workerData object works', async ({ equal }) => {
+  const pool = new Piscina({
+    filename: resolve(__dirname, 'fixtures/simple-workerdata.ts'),
+    workerData: { ABC: true }
+  });
+  equal(Piscina.workerData, undefined);
+
+  await pool.runTask(null);
+});
+
 test('passing invalid workerData does not work', async ({ throws }) => {
   throws(() => new Piscina(({
     filename: resolve(__dirname, 'fixtures/simple-workerdata.ts'),

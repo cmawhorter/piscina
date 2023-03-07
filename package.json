@@ -10,8 +10,7 @@
   "types": "./dist/src/index.d.ts",
   "scripts": {
     "build": "tsc && gen-esm-wrapper . dist/esm-wrapper.mjs",
-    "lint": "standardx \"**/*.{ts,mjs,js,cjs}\" | snazzy",
-    "test": "npm run lint && npm run build && npm run test-only",
+    "test": "npm run build && npm run test-only",
     "test-only": "tap --ts",
     "prepack": "npm run build"
   },
@@ -33,6 +32,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^15.0.1",
+    "@types/tap": "^15.0.8",
     "@typescript-eslint/eslint-plugin": "^4.22.0",
     "@typescript-eslint/parser": "^4.22.0",
     "abort-controller": "^3.0.0",

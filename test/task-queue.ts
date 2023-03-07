@@ -1,7 +1,8 @@
 import Piscina from '..';
+import { randomInt } from 'crypto';
 import { test } from 'tap';
 import { resolve } from 'path';
-import { Task, TaskQueue } from '../dist/src/common';
+import { IWorker, Task, TaskQueue, WorkerData } from '../dist/src/common';
 
 test('will put items into a task queue until they can run', async ({ equal }) => {
   const pool = new Piscina({
@@ -233,6 +234,10 @@ test('custom task queue works', async ({ equal, ok }) => {
       return this.tasks.length > 0 ? this.tasks.shift() as Task : null;
     }
 
+    unshift (task: Task) : void {
+      this.tasks.unshift(task);
+    }
+
     push (task : Task) : void {
       pushCalled = true;
       this.tasks.push(task);
@@ -277,4 +282,106 @@ test('custom task queue works', async ({ equal, ok }) => {
   ok(sizeCalled);
   ok(pushCalled);
   ok(shiftCalled);
+});
+
+test('custom routed queue works', async ({ equal }) => {
+  function taskMatches (threadData: WorkerData, task: Task): boolean {
+    if (!threadData) {
+      // console.log('_taskMatches; no threadData');
+      return false;
+    }
+    const threadDataPartition = (threadData as any).partition;
+    const taskPartition = task[Piscina.queueOptionsSymbol].partition;
+    if (threadDataPartition === undefined || taskPartition === undefined) {
+      return false;
+    }
+    // console.log(`${workerDataPartition} === ${taskPartition}`);
+    return threadDataPartition === taskPartition;
+  }
+
+  class CustomTaskPool implements TaskQueue {
+    tasks: Task[] = [];
+
+    get size () : number {
+      return this.tasks.length;
+    }
+
+    shift (worker: null | IWorker) : Task | null {
+      if (this.tasks.length === 0) {
+        // console.log('shift; empty');
+        return null;
+      }
+      if (!worker) {
+        // console.log('shift; no worker -> assuming destroying');
+        return this.tasks.shift(); // destroying
+      }
+      for (let i = 0; i < this.tasks.length; i++) {
+        const task = this.tasks[i];
+        const match = taskMatches(worker.threadData, task);
+        if (match) {
+          // console.log('shift; found match');
+          this.tasks.splice(i, 1);
+          // console.log(`shift; returning task ${task[Piscina.queueOptionsSymbol].partition} for thread ${(worker.threadData as any).partition}`);
+          return task;
+        }
+      }
+      // console.log('shift; failed to find match');
+      return null;
+    }
+
+    unshift (task: Task) : void {
+      this.tasks.unshift(task);
+    }
+
+    push (task : Task) : void {
+      this.tasks.push(task);
+    }
+
+    remove (task : Task) : void {
+      const index = this.tasks.indexOf(task);
+      this.tasks.splice(index, 1);
+    }
+  };
+
+  const concurrency = 4;
+  const pool = new Piscina({
+    filename: resolve(__dirname, 'fixtures/routed-queue-threaddata.ts'),
+    taskQueue: new CustomTaskPool(),
+    maxThreads: concurrency,
+    minThreads: concurrency,
+    filterAvailableWorkers(worker: IWorker, task: Task): boolean {
+      // console.log(`filterAvailableWorkers ${task[Piscina.queueOptionsSymbol].partition} for thread ${(worker.threadData as any).partition}`);
+      return taskMatches(worker.threadData, task) ? true : false;
+    },
+    provideThreadData(workers) {
+      for (let i = 1; i <= concurrency; i++) {
+        let found = false;
+        for (const worker of workers) {
+          if ((worker.threadData as any).partition === i) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          // console.log('provideWorkerData found partition', i);
+          return { partition: i };
+        }
+      }
+      return undefined;
+    }
+  });
+
+  function makeTask (task, partition) {
+    return { ...task, [Piscina.queueOptionsSymbol]: { partition } };
+  }
+  
+  const tasks: any[] = [];
+  for (let i = 0; i < 50; i++) {
+    const partition = randomInt(concurrency) + 1;
+    tasks.push(pool.runTask(makeTask({ partition, i }, partition)));
+  }
+  const ret = await Promise.all(tasks);
+  for (const result of ret) {
+    equal(result.partition, result.workerPartition);
+  }
 });
