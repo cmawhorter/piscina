@@ -1,6 +1,6 @@
 {
-  "name": "piscina",
-  "version": "3.3.0",
+  "name": "@cmawhorter/piscina",
+  "version": "1.0.0",
   "description": "A fast, efficient Node.js Worker Thread Pool implementation",
   "main": "./dist/src/index.js",
   "exports": {
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/piscinajs/piscina.git"
+    "url": "git://github.com/cmawhorter/piscina.git"
   },
   "keywords": [
     "fast",
